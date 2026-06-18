@@ -1,6 +1,48 @@
 import React, { useEffect, useState, useRef } from 'react';
 import type { Bot } from '../data/bots';
 
+let audioCtx: AudioContext | null = null;
+const initAudio = () => {
+  if (!audioCtx) {
+    audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+  }
+  if (audioCtx.state === 'suspended') {
+    audioCtx.resume();
+  }
+  return audioCtx;
+};
+
+const playTick = (ctx: AudioContext) => {
+  // Create a 50ms burst of white noise
+  const bufferSize = ctx.sampleRate * 0.05; 
+  const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+  const data = buffer.getChannelData(0);
+  for (let i = 0; i < bufferSize; i++) {
+    data[i] = Math.random() * 2 - 1;
+  }
+  
+  const noiseSource = ctx.createBufferSource();
+  noiseSource.buffer = buffer;
+  
+  // Filter it heavily to make it sound like a solid plastic/wood "click"
+  const filter = ctx.createBiquadFilter();
+  filter.type = 'bandpass';
+  filter.frequency.value = 2000;
+  filter.Q.value = 1.0;
+  
+  const gainNode = ctx.createGain();
+  
+  noiseSource.connect(filter);
+  filter.connect(gainNode);
+  gainNode.connect(ctx.destination);
+  
+  // Very sharp decay envelope to kill the sound instantly (like a physical impact)
+  gainNode.gain.setValueAtTime(0.8, ctx.currentTime);
+  gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.015);
+  
+  noiseSource.start(ctx.currentTime);
+};
+
 interface BotWheelProps {
   bots: Bot[];
   isSpinning: boolean;
@@ -47,18 +89,47 @@ export const BotWheel: React.FC<BotWheelProps> = ({ bots, isSpinning, selectedBo
       
       const finalOffset = -(targetIndex * ITEM_HEIGHT);
       
+      let animationFrameId: number;
+      const ctx = initAudio();
+      
       if (stripRef.current) {
         // Trigger reflow to ensure the transition from 0px starts properly
         void stripRef.current.offsetHeight;
         stripRef.current.style.transition = `transform ${SPIN_DURATION_MS}ms cubic-bezier(0.15, 0.85, 0.15, 1)`;
         stripRef.current.style.transform = `translateY(${finalOffset}px)`;
+        
+        let lastIndex = -1;
+        const checkTick = () => {
+          if (!stripRef.current) return;
+          const style = window.getComputedStyle(stripRef.current);
+          const matrix = style.transform;
+          if (matrix !== 'none') {
+            const match = matrix.match(/matrix.*\((.+)\)/);
+            if (match) {
+              const values = match[1].split(', ');
+              const y = parseFloat(values[5]);
+              // Math.floor will detect every time we pass a full item threshold
+              const currentIndex = Math.floor(Math.abs(y) / ITEM_HEIGHT);
+              if (lastIndex !== -1 && currentIndex !== lastIndex) {
+                playTick(ctx);
+              }
+              lastIndex = currentIndex;
+            }
+          }
+          animationFrameId = requestAnimationFrame(checkTick);
+        };
+        animationFrameId = requestAnimationFrame(checkTick);
       }
       
       const timer = setTimeout(() => {
         onSpinComplete();
+        cancelAnimationFrame(animationFrameId);
       }, SPIN_DURATION_MS + 100);
 
-      return () => clearTimeout(timer);
+      return () => {
+        clearTimeout(timer);
+        cancelAnimationFrame(animationFrameId);
+      };
     }
   }, [isSpinning, selectedBot, bots, onSpinComplete]);
 
