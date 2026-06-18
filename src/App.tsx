@@ -50,6 +50,12 @@ function App() {
         isSpinning={isSpinning}
         hasValidBots={filteredBots.length > 0}
       />
+
+      <footer style={{ marginTop: '3rem', textAlign: 'center', fontSize: '0.75rem', color: 'var(--text-muted)', opacity: 0.7 }}>
+        <p>This is an unofficial, unauthorized project created for fun.</p>
+        <p>Not affiliated with, endorsed by, or sponsored by Chess.com.</p>
+        <p>All bot names and avatars are property of Chess.com.</p>
+      </footer>
     </div>
   );
 }
