@@ -30,7 +30,7 @@ function App() {
   return (
     <div className="app-container">
       <div>
-        <h1>Chess.com Bots</h1>
+        <h1>Chess Bot Randomizer</h1>
         <p className="subtitle">Spin to find your next opponent</p>
       </div>
 
