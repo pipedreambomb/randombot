@@ -21,7 +21,7 @@ const ELO_TIERS = [
   { value: 2200, label: '2200' },
   { value: 2300, label: '2300' },
   { value: 2450, label: '2450' },
-  { value: 4000, label: 'Unlimited' }
+  { value: Infinity, label: 'Unlimited' }
 ];
 interface ControlsProps {
   minElo: number;
@@ -54,7 +54,7 @@ export const Controls: React.FC<ControlsProps> = ({
             disabled={isSpinning}
             className="elo-select"
           >
-            {ELO_TIERS.map(tier => (
+            {ELO_TIERS.filter(tier => tier.value <= maxElo && tier.value !== Infinity).map(tier => (
               <option key={`min-${tier.value}`} value={tier.value}>{tier.label}</option>
             ))}
           </select>
@@ -68,7 +68,7 @@ export const Controls: React.FC<ControlsProps> = ({
             disabled={isSpinning}
             className="elo-select"
           >
-            {ELO_TIERS.map(tier => (
+            {ELO_TIERS.filter(tier => tier.value >= minElo).map(tier => (
               <option key={`max-${tier.value}`} value={tier.value}>{tier.label}</option>
             ))}
           </select>

@@ -158,7 +158,7 @@ export const BotWheel: React.FC<BotWheelProps> = ({ bots, isSpinning, selectedBo
             )}
             <div className="bot-info">
               <div className="bot-name">{bot.name}</div>
-              <div className="bot-elo">{bot.elo} ELO <span className="bot-group-badge">{bot.group}</span></div>
+              <div className="bot-elo">{bot.id === 'the-mechanical-turk' ? '?' : bot.elo} ELO <span className="bot-group-badge">{bot.group}</span></div>
             </div>
           </div>
         ))}

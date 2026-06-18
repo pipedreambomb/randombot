@@ -1123,7 +1123,7 @@ export const bots: Bot[] = [
   {
     "id": "the-mechanical-turk",
     "name": "The Mechanical Turk",
-    "elo": 1500,
+    "elo": 2500,
     "group": "Personalities",
     "imageUrl": "https://images.chesscomfiles.com/uploads/v1/bot_personality/c2fef3ca-1885-11ef-8bd3-c1a790534937.3a1e2c89.384x384o.c52834e58f39.png"
   }
