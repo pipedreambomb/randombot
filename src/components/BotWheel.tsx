@@ -1,10 +1,16 @@
 import React, { useEffect, useState, useRef } from 'react';
 import type { Bot } from '../data/bots';
 
+declare global {
+  interface Window {
+    webkitAudioContext: typeof AudioContext;
+  }
+}
+
 let audioCtx: AudioContext | null = null;
 const initAudio = () => {
   if (!audioCtx) {
-    audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
   }
   if (audioCtx.state === 'suspended') {
     audioCtx.resume();
