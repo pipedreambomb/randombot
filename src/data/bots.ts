@@ -2,6 +2,7 @@ export interface Bot {
   id: string;
   name: string;
   elo: number;
+  displayElo?: string;
   imageUrl: string;
   group: string;
 }
@@ -556,7 +557,8 @@ export const bots: Bot[] = [
   {
     "id": "yoko-ono",
     "name": "Yoko Ono",
-    "elo": 1500,
+    "elo": 1300,
+    "displayElo": "Play It By Trust 🇯🇵",
     "group": "Musicians",
     "imageUrl": "https://images.chesscomfiles.com/uploads/v1/bot_personality/90bca59e-0c83-11f1-b2ff-87800f13c1a3.289af467.384x384o.461a593e34ba.png"
   },
@@ -1124,6 +1126,7 @@ export const bots: Bot[] = [
     "id": "the-mechanical-turk",
     "name": "The Mechanical Turk",
     "elo": 2500,
+    "displayElo": "?",
     "group": "Personalities",
     "imageUrl": "https://images.chesscomfiles.com/uploads/v1/bot_personality/c2fef3ca-1885-11ef-8bd3-c1a790534937.3a1e2c89.384x384o.c52834e58f39.png"
   }

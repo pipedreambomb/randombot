@@ -1,10 +1,16 @@
 import React, { useEffect, useState, useRef } from 'react';
 import type { Bot } from '../data/bots';
 
+declare global {
+  interface Window {
+    webkitAudioContext: typeof AudioContext;
+  }
+}
+
 let audioCtx: AudioContext | null = null;
 const initAudio = () => {
   if (!audioCtx) {
-    audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
   }
   if (audioCtx.state === 'suspended') {
     audioCtx.resume();
@@ -200,7 +206,9 @@ export const BotWheel: React.FC<BotWheelProps> = ({ bots, isSpinning, selectedBo
             )}
             <div className="bot-info">
               <div className="bot-name">{bot.name}</div>
-              <div className="bot-elo">{bot.id === 'the-mechanical-turk' ? '?' : bot.elo} ELO <span className="bot-group-badge">{bot.group}</span></div>
+              <div className="bot-elo">
+                {bot.displayElo ? bot.displayElo : `${bot.elo} ELO`} <span className="bot-group-badge">{bot.group}</span>
+              </div>
             </div>
           </div>
         ))}
