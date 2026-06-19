@@ -73,7 +73,7 @@ export const BotWheel: React.FC<BotWheelProps> = ({ bots, isSpinning, selectedBo
     if (bots.length > 0 && stripBots.length === 0) {
       const displayBot = selectedBot || bots.find(b => b.id === 'martin') || bots[0];
       displayedBotRef.current = displayBot;
-      setStripBots([displayBot]);
+      requestAnimationFrame(() => setStripBots([displayBot]));
       
       // Ensure we are at the top
       if (stripRef.current) {
