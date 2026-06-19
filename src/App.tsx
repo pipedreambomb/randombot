@@ -16,7 +16,7 @@ function App() {
 
   const handleSpin = () => {
     if (filteredBots.length === 0) return;
-    
+
     setIsSpinning(true);
     // Pick a random bot from the filtered list
     const randomIndex = Math.floor(Math.random() * filteredBots.length);
@@ -34,14 +34,14 @@ function App() {
         <p className="subtitle">Spin to find your next opponent</p>
       </div>
 
-      <BotWheel 
-        bots={filteredBots} 
-        isSpinning={isSpinning} 
+      <BotWheel
+        bots={filteredBots}
+        isSpinning={isSpinning}
         selectedBot={selectedBot}
         onSpinComplete={handleSpinComplete}
       />
 
-      <Controls 
+      <Controls
         minElo={minElo}
         maxElo={maxElo}
         setMinElo={setMinElo}
@@ -51,10 +51,15 @@ function App() {
         hasValidBots={filteredBots.length > 0}
       />
 
-      <footer style={{ marginTop: '3rem', textAlign: 'center', fontSize: '0.75rem', color: 'var(--text-muted)', opacity: 0.7 }}>
+      <footer style={{ marginTop: '1.5rem', textAlign: 'center', fontSize: '0.75rem', color: 'var(--text-muted)', opacity: 0.7 }}>
         <p>This is an unofficial, unauthorized project created for fun.</p>
         <p>Not affiliated with, endorsed by, or sponsored by Chess.com.</p>
         <p>All bot names and avatars are property of Chess.com.</p>
+        <p style={{ marginTop: '0.5rem' }}>
+          <a href="https://github.com/pipedreambomb/randombot" target="_blank" rel="noopener noreferrer" style={{ color: 'inherit', textDecoration: 'underline' }}>
+            View source on GitHub
+          </a>
+        </p>
       </footer>
     </div>
   );
