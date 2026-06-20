@@ -1,7 +1,9 @@
 import json
 import re
 
-html_path = '/home/violentfemme/code/randombot/component from chess.com.html'
+import os
+
+html_path = os.path.join(os.path.dirname(__file__), 'component from chess.com.html')
 with open(html_path, 'r') as f:
     all_text = f.read()
 
@@ -50,7 +52,8 @@ for match in li_pattern.finditer(all_text):
 
 print(f"Found {len(bots)} bots")
 
-with open('/home/violentfemme/code/randombot/src/data/bots.ts', 'w') as f:
+output_path = os.path.join(os.path.dirname(__file__), 'src/data/bots.ts')
+with open(output_path, 'w') as f:
     f.write("export interface Bot {\n  id: string;\n  name: string;\n  elo: number;\n  imageUrl: string;\n  group: string;\n}\n\n")
     f.write("export const bots: Bot[] = [\n")
     for i, bot in enumerate(bots):
