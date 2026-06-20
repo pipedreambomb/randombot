@@ -157,6 +157,7 @@ p.subtitle {
   position: relative;
   height: 200px;
   width: 100%;
+  touch-action: none;
 
   overflow: hidden;
   border-radius: 16px;

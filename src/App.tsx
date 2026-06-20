@@ -39,6 +39,7 @@ function App() {
         isSpinning={isSpinning}
         selectedBot={selectedBot}
         onSpinComplete={handleSpinComplete}
+        onSpin={handleSpin}
       />
 
       <Controls

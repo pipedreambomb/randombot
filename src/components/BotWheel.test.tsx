@@ -68,12 +68,12 @@ describe('BotWheel Component', () => {
   });
 
   it('renders a fallback message when no bots are available', () => {
-    render(<BotWheel bots={[]} isSpinning={false} selectedBot={null} onSpinComplete={vi.fn()} />);
+    render(<BotWheel bots={[]} isSpinning={false} selectedBot={null} onSpinComplete={vi.fn()} onSpin={vi.fn()} />);
     expect(screen.getByText('No bots available.')).toBeInTheDocument();
   });
 
   it('renders the initial state with the first bot or selected bot', () => {
-    render(<BotWheel bots={mockBots} isSpinning={false} selectedBot={mockBots[1]} onSpinComplete={vi.fn()} />);
+    const { unmount } = render(<BotWheel bots={mockBots} isSpinning={false} selectedBot={mockBots[1]} onSpinComplete={vi.fn()} onSpin={vi.fn()} />);
 
     act(() => {
       vi.advanceTimersByTime(20);
@@ -84,8 +84,10 @@ describe('BotWheel Component', () => {
     expect(screen.getByText('1200?')).toBeInTheDocument();
     expect(screen.getByText('Intermediate')).toBeInTheDocument();
 
+    unmount();
+
     // Test empty imageUrl path (placeholder)
-    render(<BotWheel bots={mockBots} isSpinning={false} selectedBot={mockBots[2]} onSpinComplete={vi.fn()} />);
+    render(<BotWheel bots={mockBots} isSpinning={false} selectedBot={mockBots[2]} onSpinComplete={vi.fn()} onSpin={vi.fn()} />);
 
     act(() => {
       vi.advanceTimersByTime(20);
@@ -99,7 +101,7 @@ describe('BotWheel Component', () => {
   it('handles the spinning logic', () => {
     const onSpinCompleteMock = vi.fn();
     const { rerender } = render(
-      <BotWheel bots={mockBots} isSpinning={false} selectedBot={null} onSpinComplete={onSpinCompleteMock} />
+      <BotWheel bots={mockBots} isSpinning={false} selectedBot={null} onSpinComplete={onSpinCompleteMock} onSpin={vi.fn()} />
     );
 
     act(() => {
@@ -111,7 +113,7 @@ describe('BotWheel Component', () => {
 
     // Trigger spin
     rerender(
-      <BotWheel bots={mockBots} isSpinning={true} selectedBot={mockBots[1]} onSpinComplete={onSpinCompleteMock} />
+      <BotWheel bots={mockBots} isSpinning={true} selectedBot={mockBots[1]} onSpinComplete={onSpinCompleteMock} onSpin={vi.fn()} />
     );
 
     act(() => {

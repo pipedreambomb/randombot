@@ -80,30 +80,42 @@ interface BotWheelProps {
   isSpinning: boolean;
   selectedBot: Bot | null;
   onSpinComplete: () => void;
+  onSpin: () => void;
 }
 
 const SPIN_DURATION_MS = 4500;
 
-export const BotWheel: React.FC<BotWheelProps> = ({ bots, isSpinning, selectedBot, onSpinComplete }) => {
+export const BotWheel: React.FC<BotWheelProps> = ({ bots, isSpinning, selectedBot, onSpinComplete, onSpin }) => {
   const [stripBots, setStripBots] = useState<Bot[]>([]);
-  const stripRef = useRef<HTMLDivElement>(null);
+  const [offset, setOffset] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
 
+  const stripRef = useRef<HTMLDivElement>(null);
   const displayedBotRef = useRef<Bot | null>(null);
 
-  // Initialize the strip on mount
+  const startYRef = useRef(0);
+  const startOffsetRef = useRef(0);
+  const lastYRef = useRef(0);
+  const lastTimeRef = useRef(0);
+  const velocityRef = useRef(0);
+  const isInternalSpinningRef = useRef(false);
+
+  // Initialize the strip
   useEffect(() => {
-    if (bots.length > 0 && stripBots.length === 0) {
-      const displayBot = selectedBot || bots.find(b => b.id === 'martin') || bots[0];
-      displayedBotRef.current = displayBot;
-      requestAnimationFrame(() => setStripBots([displayBot]));
+    if (bots.length > 0 && !isSpinning && !isInternalSpinningRef.current) {
+      setStripBots([...bots]);
       
-      // Ensure we are at the top
-      if (stripRef.current) {
-         stripRef.current.style.transition = 'none';
-         stripRef.current.style.transform = `translateY(0px)`;
+      // Center the selected bot or Martin or the first bot
+      const targetBot = selectedBot || bots.find(b => b.id === 'martin') || bots[0];
+      const botIndex = bots.findIndex(b => b.id === targetBot.id);
+      const itemHeight = 200; // Default, will be updated by container height if needed
+
+      if (botIndex !== -1) {
+        setOffset(-(botIndex * itemHeight));
+        displayedBotRef.current = targetBot;
       }
     }
-  }, [bots, selectedBot, stripBots.length]);
+  }, [bots, isSpinning, selectedBot]);
 
   // Handle starting a spin
   useEffect(() => {
@@ -132,23 +144,26 @@ export const BotWheel: React.FC<BotWheelProps> = ({ bots, isSpinning, selectedBo
 
   // Handle animation
   useEffect(() => {
-    if (isSpinning && stripBots.length > 1) {
+    if (isSpinning && stripBots.length > 1 && selectedBot) {
+      isInternalSpinningRef.current = true;
       const itemHeight = stripRef.current?.children[0]?.clientHeight || 200;
+
+      // Calculate starting position for the "roulette" strip based on where we were
       const finalOffset = -((stripBots.length - 1) * itemHeight);
       
       let animationFrameId: number;
       const ctx = initAudio();
       
       if (stripRef.current) {
-        // Snap instantly to the top (which is our current bot)
+        // Snap instantly to the top
         stripRef.current.style.transition = 'none';
         stripRef.current.style.transform = `translateY(0px)`;
+        setOffset(0);
         
         // Trigger reflow to apply the snap
         void stripRef.current.offsetHeight;
         
-        // Start animation down to the new target. 
-        // Adjusted curve to start with near-instant maximum velocity.
+        // Start animation
         stripRef.current.style.transition = `transform ${SPIN_DURATION_MS}ms cubic-bezier(0, 0.8, 0.3, 1)`;
         stripRef.current.style.transform = `translateY(${finalOffset}px)`;
         
@@ -167,24 +182,15 @@ export const BotWheel: React.FC<BotWheelProps> = ({ bots, isSpinning, selectedBo
           const currentIndex = Math.floor(Math.abs(y) / itemHeight);
 
           if (currentIndex > lastIndex && currentIndex < stripBots.length) {
-            // If the wheel is spinning so fast that it skips multiple items
-            // between browser animation frames, we calculate the missed ticks
-            // and schedule them rapidly so the audio pitch perfectly matches velocity.
             const missed = currentIndex - lastIndex;
-            const frameTime = 1 / 60; // Approximate 16ms frame
-
-            // Cap at 2 ticks per frame to prevent the audio buffers from summing
-            // together > 1.0 and causing clipping (the "crunching" noise).
+            const frameTime = 1 / 60;
             const ticksToPlay = Math.min(missed, 2);
             const timeStep = frameTime / ticksToPlay;
-
-            // Reduce volume if playing multiple rapid ticks
             const volume = 0.8 / ticksToPlay;
 
             for (let i = 0; i < ticksToPlay; i++) {
               playTick(ctx, ctx.currentTime + (i * timeStep), volume);
             }
-
             lastIndex = currentIndex;
           }
 
@@ -196,16 +202,140 @@ export const BotWheel: React.FC<BotWheelProps> = ({ bots, isSpinning, selectedBo
       }
       
       const timer = setTimeout(() => {
+        isInternalSpinningRef.current = false;
+
+        // Find selected bot index in the full bots list
+        const finalBotIndex = bots.findIndex(b => b.id === selectedBot.id);
+        if (finalBotIndex !== -1) {
+          setStripBots([...bots]);
+          setOffset(-(finalBotIndex * itemHeight));
+          displayedBotRef.current = selectedBot;
+        }
+
         onSpinComplete();
         cancelAnimationFrame(animationFrameId);
-      }, SPIN_DURATION_MS + 100);
+      }, SPIN_DURATION_MS + 50);
 
       return () => {
         clearTimeout(timer);
         cancelAnimationFrame(animationFrameId);
       };
     }
-  }, [isSpinning, stripBots, onSpinComplete]);
+  }, [isSpinning, stripBots, bots, onSpinComplete, selectedBot]);
+
+  const handlePointerDown = (e: React.PointerEvent) => {
+    if (isSpinning || isInternalSpinningRef.current) return;
+
+    initAudio();
+    setIsDragging(true);
+    startYRef.current = e.clientY;
+    startOffsetRef.current = offset;
+    lastYRef.current = e.clientY;
+    lastTimeRef.current = performance.now();
+    velocityRef.current = 0;
+
+    // Stop any CSS transitions
+    if (stripRef.current) {
+      stripRef.current.style.transition = 'none';
+    }
+
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+  };
+
+  const handlePointerMove = (e: React.PointerEvent) => {
+    if (!isDragging) return;
+
+    const deltaY = e.clientY - startYRef.current;
+    let newOffset = startOffsetRef.current + deltaY;
+
+    // Bounds resistance
+    const itemHeight = stripRef.current?.children[0]?.clientHeight || 200;
+    const maxOffset = 0;
+    const minOffset = -((stripBots.length - 1) * itemHeight);
+
+    if (newOffset > maxOffset) {
+      newOffset = maxOffset + (newOffset - maxOffset) * 0.3;
+    } else if (newOffset < minOffset) {
+      newOffset = minOffset + (newOffset - minOffset) * 0.3;
+    }
+
+    // Audio ticks
+    const oldIndex = Math.round(Math.abs(offset) / itemHeight);
+    const newIndex = Math.round(Math.abs(newOffset) / itemHeight);
+    if (newIndex !== oldIndex && newIndex >= 0 && newIndex < stripBots.length) {
+      const ctx = initAudio();
+      playTick(ctx, ctx.currentTime, 0.4);
+    }
+
+    const currentTime = performance.now();
+    const timeDelta = currentTime - lastTimeRef.current;
+    if (timeDelta > 0) {
+      velocityRef.current = (e.clientY - lastYRef.current) / timeDelta;
+    }
+
+    lastYRef.current = e.clientY;
+    lastTimeRef.current = currentTime;
+    setOffset(newOffset);
+  };
+
+  const handlePointerUp = (e: React.PointerEvent) => {
+    if (!isDragging) return;
+    setIsDragging(false);
+
+    const itemHeight = stripRef.current?.children[0]?.clientHeight || 200;
+
+    // Check for "flick" (high velocity)
+    if (Math.abs(velocityRef.current) > 1.0) {
+      onSpin();
+    } else {
+      // Snap to nearest item
+      const nearestIndex = Math.max(0, Math.min(stripBots.length - 1, Math.round(Math.abs(offset) / itemHeight)));
+      const targetOffset = -(nearestIndex * itemHeight);
+
+      setOffset(targetOffset);
+      displayedBotRef.current = stripBots[nearestIndex];
+
+      if (stripRef.current) {
+        stripRef.current.style.transition = 'transform 0.3s cubic-bezier(0.15, 0.85, 0.15, 1)';
+      }
+    }
+
+    (e.target as HTMLElement).releasePointerCapture(e.pointerId);
+  };
+
+  const wheelTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const handleWheel = (e: React.WheelEvent) => {
+    if (isSpinning || isInternalSpinningRef.current) return;
+
+    initAudio();
+    const itemHeight = stripRef.current?.children[0]?.clientHeight || 200;
+    const maxOffset = 0;
+    const minOffset = -((stripBots.length - 1) * itemHeight);
+
+    let newOffset = offset - e.deltaY;
+    newOffset = Math.max(minOffset, Math.min(maxOffset, newOffset));
+
+    // Audio ticks
+    const oldIndex = Math.round(Math.abs(offset) / itemHeight);
+    const newIndex = Math.round(Math.abs(newOffset) / itemHeight);
+    if (newIndex !== oldIndex && newIndex >= 0 && newIndex < stripBots.length) {
+      const ctx = initAudio();
+      playTick(ctx, ctx.currentTime, 0.4);
+    }
+
+    setOffset(newOffset);
+
+    if (wheelTimeoutRef.current) clearTimeout(wheelTimeoutRef.current);
+    wheelTimeoutRef.current = setTimeout(() => {
+      const nearestIndex = Math.round(Math.abs(newOffset) / itemHeight);
+      const targetOffset = -(nearestIndex * itemHeight);
+      setOffset(targetOffset);
+      displayedBotRef.current = stripBots[nearestIndex];
+      if (stripRef.current) {
+        stripRef.current.style.transition = 'transform 0.3s cubic-bezier(0.15, 0.85, 0.15, 1)';
+      }
+    }, 150);
+  };
 
   if (bots.length === 0) {
     return (
@@ -216,10 +346,21 @@ export const BotWheel: React.FC<BotWheelProps> = ({ bots, isSpinning, selectedBo
   }
 
   return (
-    <div className="wheel-container">
+    <div className="wheel-container"
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onPointerCancel={handlePointerUp}
+      onWheel={handleWheel}
+      style={{ touchAction: 'none' }}
+    >
       <div 
         className="wheel-strip" 
         ref={stripRef}
+        style={{
+          transform: `translateY(${offset}px)`,
+          transition: isDragging ? 'none' : undefined
+        }}
       >
         {stripBots.map((bot, idx) => (
           <div key={`${bot.id}-${idx}`} className="wheel-item">
