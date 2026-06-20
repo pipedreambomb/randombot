@@ -2,7 +2,6 @@ import { render, screen, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import App from './App';
-import { bots } from './data/bots';
 
 vi.mock('./data/bots', async (importOriginal) => {
   const actual = await importOriginal<typeof import('./data/bots')>();
@@ -16,18 +15,17 @@ vi.mock('./data/bots', async (importOriginal) => {
 });
 
 describe('App Component', () => {
-  let mathRandomSpy: any;
 
   beforeEach(() => {
     // Mock Math.random to always return a predictable value (e.g., 0.5)
     // For a 100 element array, 0.5 will pick index 50
-    mathRandomSpy = vi.spyOn(Math, 'random').mockReturnValue(0.5);
+    vi.spyOn(Math, 'random').mockReturnValue(0.5);
 
     // We also need to mock requestAnimationFrame for the BotWheel to not hang/crash or wait forever
     vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {
-      return setTimeout(() => cb(0), 16) as any;
+      return setTimeout(() => cb(0), 16) as unknown as number;
     });
-    vi.spyOn(window, 'cancelAnimationFrame').mockImplementation((id) => clearTimeout(id as any));
+    vi.spyOn(window, 'cancelAnimationFrame').mockImplementation((id) => clearTimeout(id as unknown as number));
 
     // Need to mock AudioContext for BotWheel
     class AudioContextMock {
@@ -58,8 +56,7 @@ describe('App Component', () => {
       sampleRate = 44100;
       currentTime = 0;
     }
-    window.AudioContext = AudioContextMock as any;
-    window.webkitAudioContext = AudioContextMock as any;
+    window.AudioContext = AudioContextMock as unknown as typeof AudioContext;
   });
 
   afterEach(() => {
