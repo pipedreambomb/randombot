@@ -233,7 +233,7 @@ export const BotWheel: React.FC<BotWheelProps> = ({ bots, isSpinning, selectedBo
             <div className="bot-info">
               <div className="bot-name">{bot.name}</div>
               <div className="bot-elo">
-                {bot.displayElo ? bot.displayElo : `666 ELO`} <span className="bot-group-badge">{bot.group}</span>
+                `666 ELO` <span className="bot-group-badge">{bot.group}</span>
               </div>
             </div>
           </div>
