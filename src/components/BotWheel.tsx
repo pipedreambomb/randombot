@@ -1,6 +1,23 @@
 import React, { useEffect, useState, useRef } from 'react';
 import type { Bot } from '../data/bots';
 
+// Utility to solve cubic bezier for animation progress
+const solveCubicBezier = (p1x: number, p1y: number, p2x: number, p2y: number, x: number): number => {
+  if (x <= 0) return 0;
+  if (x >= 1) return 1;
+
+  let t = x;
+  for (let i = 0; i < 8; i++) {
+    const pX = 3 * Math.pow(1 - t, 2) * t * p1x + 3 * (1 - t) * Math.pow(t, 2) * p2x + Math.pow(t, 3);
+    const dX = 3 * Math.pow(1 - t, 2) * p1x + 6 * (1 - t) * t * (p2x - p1x) + 3 * Math.pow(t, 2) * (1 - p2x);
+    if (Math.abs(pX - x) < 1e-5) break;
+    if (Math.abs(dX) < 1e-5) break;
+    t -= (pX - x) / dX;
+  }
+
+  return 3 * Math.pow(1 - t, 2) * t * p1y + 3 * (1 - t) * Math.pow(t, 2) * p2y + Math.pow(t, 3);
+};
+
 let audioCtx: AudioContext | null = null;
 const initAudio = () => {
   if (!audioCtx) {
@@ -12,19 +29,24 @@ const initAudio = () => {
   return audioCtx;
 };
 
+let cachedNoiseBuffer: AudioBuffer | null = null;
+
 const playTick = (ctx: AudioContext, time?: number, volume: number = 0.8) => {
   const startTime = time ?? ctx.currentTime;
   
-  // Create a 50ms burst of white noise
-  const bufferSize = ctx.sampleRate * 0.05; 
-  const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
-  const data = buffer.getChannelData(0);
-  for (let i = 0; i < bufferSize; i++) {
-    data[i] = Math.random() * 2 - 1;
+  // Create a 50ms burst of white noise (cached)
+  if (!cachedNoiseBuffer) {
+    const bufferSize = ctx.sampleRate * 0.05;
+    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+      data[i] = Math.random() * 2 - 1;
+    }
+    cachedNoiseBuffer = buffer;
   }
   
   const noiseSource = ctx.createBufferSource();
-  noiseSource.buffer = buffer;
+  noiseSource.buffer = cachedNoiseBuffer;
   
   // Filter it heavily to make it sound like a solid plastic/wood "click"
   const filter = ctx.createBiquadFilter();
@@ -125,40 +147,44 @@ export const BotWheel: React.FC<BotWheelProps> = ({ bots, isSpinning, selectedBo
         stripRef.current.style.transform = `translateY(${finalOffset}px)`;
         
         let lastIndex = 0;
-        const checkTick = () => {
+        let startTime: number | null = null;
+
+        const checkTick = (timestamp: number) => {
           if (!stripRef.current) return;
-          const style = window.getComputedStyle(stripRef.current);
-          const matrix = style.transform;
-          if (matrix !== 'none') {
-            const match = matrix.match(/matrix.*\((.+)\)/);
-            if (match) {
-              const values = match[1].split(', ');
-              const y = parseFloat(values[5]);
-              const currentIndex = Math.floor(Math.abs(y) / itemHeight);
-              if (currentIndex > lastIndex && currentIndex < stripBots.length) {
-                // If the wheel is spinning so fast that it skips multiple items 
-                // between browser animation frames, we calculate the missed ticks 
-                // and schedule them rapidly so the audio pitch perfectly matches velocity.
-                const missed = currentIndex - lastIndex;
-                const frameTime = 1 / 60; // Approximate 16ms frame
-                
-                // Cap at 2 ticks per frame to prevent the audio buffers from summing 
-                // together > 1.0 and causing clipping (the "crunching" noise).
-                const ticksToPlay = Math.min(missed, 2);
-                const timeStep = frameTime / ticksToPlay;
-                
-                // Reduce volume if playing multiple rapid ticks
-                const volume = 0.8 / ticksToPlay;
-                
-                for (let i = 0; i < ticksToPlay; i++) {
-                  playTick(ctx, ctx.currentTime + (i * timeStep), volume);
-                }
-                
-                lastIndex = currentIndex;
-              }
+          if (startTime === null) startTime = timestamp;
+
+          const elapsed = timestamp - startTime;
+          const x = Math.min(elapsed / SPIN_DURATION_MS, 1);
+          const yProgress = solveCubicBezier(0, 0.8, 0.3, 1, x);
+          const y = yProgress * finalOffset;
+
+          const currentIndex = Math.floor(Math.abs(y) / itemHeight);
+
+          if (currentIndex > lastIndex && currentIndex < stripBots.length) {
+            // If the wheel is spinning so fast that it skips multiple items
+            // between browser animation frames, we calculate the missed ticks
+            // and schedule them rapidly so the audio pitch perfectly matches velocity.
+            const missed = currentIndex - lastIndex;
+            const frameTime = 1 / 60; // Approximate 16ms frame
+
+            // Cap at 2 ticks per frame to prevent the audio buffers from summing
+            // together > 1.0 and causing clipping (the "crunching" noise).
+            const ticksToPlay = Math.min(missed, 2);
+            const timeStep = frameTime / ticksToPlay;
+
+            // Reduce volume if playing multiple rapid ticks
+            const volume = 0.8 / ticksToPlay;
+
+            for (let i = 0; i < ticksToPlay; i++) {
+              playTick(ctx, ctx.currentTime + (i * timeStep), volume);
             }
+
+            lastIndex = currentIndex;
           }
-          animationFrameId = requestAnimationFrame(checkTick);
+
+          if (elapsed < SPIN_DURATION_MS) {
+            animationFrameId = requestAnimationFrame(checkTick);
+          }
         };
         animationFrameId = requestAnimationFrame(checkTick);
       }
