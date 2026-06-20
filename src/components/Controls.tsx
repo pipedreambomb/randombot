@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 
 const ELO_TIERS = [
   { value: 250, label: '250' },
@@ -42,6 +42,16 @@ export const Controls: React.FC<ControlsProps> = ({
   isSpinning,
   hasValidBots
 }) => {
+  const minTiers = useMemo(
+    () => ELO_TIERS.filter(tier => tier.value <= maxElo && tier.value !== Infinity),
+    [maxElo]
+  );
+
+  const maxTiers = useMemo(
+    () => ELO_TIERS.filter(tier => tier.value >= minElo),
+    [minElo]
+  );
+
   return (
     <div className="controls-container glass-panel">
       <div className="elo-inputs">
@@ -54,7 +64,7 @@ export const Controls: React.FC<ControlsProps> = ({
             disabled={isSpinning}
             className="elo-select"
           >
-            {ELO_TIERS.filter(tier => tier.value <= maxElo && tier.value !== Infinity).map(tier => (
+            {minTiers.map(tier => (
               <option key={`min-${tier.value}`} value={tier.value}>{tier.label}</option>
             ))}
           </select>
@@ -68,7 +78,7 @@ export const Controls: React.FC<ControlsProps> = ({
             disabled={isSpinning}
             className="elo-select"
           >
-            {ELO_TIERS.filter(tier => tier.value >= minElo).map(tier => (
+            {maxTiers.map(tier => (
               <option key={`max-${tier.value}`} value={tier.value}>{tier.label}</option>
             ))}
           </select>
