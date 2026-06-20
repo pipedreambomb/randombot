@@ -18,19 +18,24 @@ const initAudio = () => {
   return audioCtx;
 };
 
+let cachedNoiseBuffer: AudioBuffer | null = null;
+
 const playTick = (ctx: AudioContext, time?: number, volume: number = 0.8) => {
   const startTime = time ?? ctx.currentTime;
   
-  // Create a 50ms burst of white noise
-  const bufferSize = ctx.sampleRate * 0.05; 
-  const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
-  const data = buffer.getChannelData(0);
-  for (let i = 0; i < bufferSize; i++) {
-    data[i] = Math.random() * 2 - 1;
+  // Create a 50ms burst of white noise (cached)
+  if (!cachedNoiseBuffer) {
+    const bufferSize = ctx.sampleRate * 0.05;
+    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+      data[i] = Math.random() * 2 - 1;
+    }
+    cachedNoiseBuffer = buffer;
   }
   
   const noiseSource = ctx.createBufferSource();
-  noiseSource.buffer = buffer;
+  noiseSource.buffer = cachedNoiseBuffer;
   
   // Filter it heavily to make it sound like a solid plastic/wood "click"
   const filter = ctx.createBiquadFilter();
