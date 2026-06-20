@@ -6,3 +6,4 @@
   NODE_ENV = "development"
   NPM_FLAGS = "--include=dev"
   NODE_VERSION = "22"
+  PYTHON_VERSION = "3.11"
