@@ -111,6 +111,7 @@ export const BotWheel: React.FC<BotWheelProps> = ({ bots, isSpinning, selectedBo
       const itemHeight = 200; // Default, will be updated by container height if needed
 
       if (botIndex !== -1) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setOffset(-(botIndex * itemHeight));
         displayedBotRef.current = targetBot;
       }
