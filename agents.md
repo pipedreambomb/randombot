@@ -1,0 +1,1 @@
+Please ignore the `scrape` directory when analyzing for code issues and general improvements. The scripts inside (`parse.py` and `extract_bots.mjs`) are one-off scripts to scrape information and assets we need from chess.com. Hopefully we won't need them again, so it doesn't matter that paths are hard-coded and they might have code quality issues.
