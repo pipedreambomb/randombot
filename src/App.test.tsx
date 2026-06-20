@@ -57,6 +57,7 @@ describe('App Component', () => {
       currentTime = 0;
     }
     window.AudioContext = AudioContextMock as unknown as typeof AudioContext;
+    window.webkitAudioContext = AudioContextMock as unknown as typeof AudioContext;
   });
 
   afterEach(() => {
