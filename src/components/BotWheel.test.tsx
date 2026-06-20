@@ -57,7 +57,7 @@ describe('BotWheel Component', () => {
     // Mock getComputedStyle
     vi.stubGlobal('getComputedStyle', vi.fn(() => ({
       transform: 'matrix(1, 0, 0, 1, 0, -200)',
-    } as any)));
+    } as unknown as CSSStyleDeclaration)));
 
     vi.useFakeTimers();
   });
