@@ -6,7 +6,6 @@ import './index.css';
 
 function App() {
   const [minElo, setMinElo] = useState<number>(250);
-  const [maxElo, setMaxElo] = useState<number>(Infinity);
   const [isSpinning, setIsSpinning] = useState(false);
   const [selectedBot, setSelectedBot] = useState<Bot | null>(null);
 
