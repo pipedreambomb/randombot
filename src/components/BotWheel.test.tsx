@@ -92,6 +92,7 @@ describe('BotWheel Component', () => {
     });
 
     expect(screen.getByText('Bot 3')).toBeInTheDocument();
+    expect(screen.getByText('1500')).toBeInTheDocument();
     expect(screen.getByText('B')).toBeInTheDocument(); // Name starts with B -> 'B'
   });
 
