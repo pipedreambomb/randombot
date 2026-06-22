@@ -1,14 +1,28 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Controls } from './components/Controls';
 import { BotWheel } from './components/BotWheel';
 import { bots as allBots, type Bot } from './data/bots';
 import './index.css';
 
 function App() {
-  const [minElo, setMinElo] = useState<number>(250);
-  const [maxElo, setMaxElo] = useState<number>(Infinity);
+  const [minElo, setMinElo] = useState<number>(() => {
+    const saved = localStorage.getItem('minElo');
+    return saved !== null ? Number(saved) : 250;
+  });
+  const [maxElo, setMaxElo] = useState<number>(() => {
+    const saved = localStorage.getItem('maxElo');
+    return saved !== null ? Number(saved) : Infinity;
+  });
   const [isSpinning, setIsSpinning] = useState(false);
   const [selectedBot, setSelectedBot] = useState<Bot | null>(null);
+
+  useEffect(() => {
+    localStorage.setItem('minElo', minElo.toString());
+  }, [minElo]);
+
+  useEffect(() => {
+    localStorage.setItem('maxElo', maxElo.toString());
+  }, [maxElo]);
 
   const filteredBots = useMemo(() => {
     return allBots.filter(bot => bot.elo >= minElo && bot.elo <= maxElo);
@@ -60,6 +74,7 @@ function App() {
             View source on GitHub
           </a>
         </p>
+        <p style={{ marginTop: '0.5rem', fontStyle: 'italic' }}>Privacy & Storage: This tool uses your browser's local storage solely to remember your minimum and maximum Elo filter settings between visits. Absolutely no personal data is tracked, collected, or sent to any server.</p>
       </footer>
     </div>
   );
