@@ -40,7 +40,7 @@ let cachedNoiseBuffer: AudioBuffer | null = null;
 const playTick = (ctx: AudioContext, time?: number, volume: number = 0.8) => {
   const startTime = time ?? ctx.currentTime;
   
-  // Create a 50ms burst of white noise (cached)
+  // Use a noise-based 'tick' sound to mimic a mechanical wheel
   if (!cachedNoiseBuffer) {
     const bufferSize = ctx.sampleRate * 0.05;
     const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
@@ -54,7 +54,6 @@ const playTick = (ctx: AudioContext, time?: number, volume: number = 0.8) => {
   const noiseSource = ctx.createBufferSource();
   noiseSource.buffer = cachedNoiseBuffer;
   
-  // Filter it heavily to make it sound like a solid plastic/wood "click"
   const filter = ctx.createBiquadFilter();
   filter.type = 'bandpass';
   filter.frequency.value = 2000;
@@ -66,9 +65,7 @@ const playTick = (ctx: AudioContext, time?: number, volume: number = 0.8) => {
   filter.connect(gainNode);
   gainNode.connect(ctx.destination);
   
-  // Very sharp decay envelope to kill the sound instantly (like a physical impact)
   gainNode.gain.setValueAtTime(volume, startTime);
-  // Faster decay for lower volumes (high velocity) to prevent audio overlapping/crunching
   const decayTime = volume < 0.8 ? 0.008 : 0.015;
   gainNode.gain.exponentialRampToValueAtTime(0.01, startTime + decayTime);
   
@@ -84,13 +81,14 @@ interface BotWheelProps {
 }
 
 const SPIN_DURATION_MS = 4500;
+const ITEM_HEIGHT = 200;
 
 export const BotWheel: React.FC<BotWheelProps> = ({ bots, isSpinning, selectedBot, onSpinComplete, onSpin }) => {
   const [stripBots, setStripBots] = useState<Bot[]>([]);
   const [offset, setOffset] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
+  const [transition, setTransition] = useState<string>('none');
 
-  const stripRef = useRef<HTMLDivElement>(null);
   const displayedBotRef = useRef<Bot | null>(null);
 
   const startYRef = useRef(0);
@@ -100,99 +98,82 @@ export const BotWheel: React.FC<BotWheelProps> = ({ bots, isSpinning, selectedBo
   const velocityRef = useRef(0);
   const isInternalSpinningRef = useRef(false);
 
-  // Initialize the strip
+  // Sync bots to strip
   useEffect(() => {
-    if (bots.length > 0 && !isSpinning && !isInternalSpinningRef.current) {
+    if (bots.length === 0) return;
+
+    if (!isSpinning && !isInternalSpinningRef.current) {
       setStripBots([...bots]);
       
-      // Center the selected bot or Martin or the first bot
-      const targetBot = selectedBot || bots.find(b => b.id === 'martin') || bots[0];
-      const botIndex = bots.findIndex(b => b.id === targetBot.id);
-      const itemHeight = 200; // Default, will be updated by container height if needed
+      // If we already have a displayed bot, try to keep it in view
+      let targetBot = displayedBotRef.current;
+      if (!targetBot || !bots.find(b => b.id === targetBot?.id)) {
+        targetBot = selectedBot || bots.find(b => b.id === 'martin') || bots[0];
+      }
 
+      const botIndex = bots.findIndex(b => b.id === targetBot.id);
       if (botIndex !== -1) {
-        // eslint-disable-next-line react-hooks/set-state-in-effect
-        setOffset(-(botIndex * itemHeight));
+        setOffset(-(botIndex * ITEM_HEIGHT));
         displayedBotRef.current = targetBot;
       }
     }
   }, [bots, isSpinning, selectedBot]);
 
-  // Handle starting a spin
+  // Handle Spin Logic
   useEffect(() => {
+    let animationFrameId: number;
+    let timerId: ReturnType<typeof setTimeout>;
+
     if (isSpinning && selectedBot && bots.length > 0) {
-      const SPIN_ITEMS = 120; // Massive roulette-style spin
-      const currentBot = displayedBotRef.current || bots[0];
+      isInternalSpinningRef.current = true;
+      const ctx = initAudio();
       
-      const newStrip = [currentBot];
-      
-      // Pick 10 random bots to repeat for the high-speed blur. 
-      // This tricks the eye while preventing the browser from loading 100 unique images!
+      // Build a long strip for the spin animation to create a scrolling effect
+      const SPIN_ITEMS = 100;
       const blurPool = [];
       for (let i = 0; i < 10; i++) {
         blurPool.push(bots[Math.floor(Math.random() * bots.length)]);
       }
       
-      for (let i = 1; i < SPIN_ITEMS - 1; i++) {
-        newStrip.push(blurPool[i % blurPool.length]);
+      const newStrip = [...bots];
+      while (newStrip.length < SPIN_ITEMS - 1) {
+        newStrip.push(blurPool[newStrip.length % blurPool.length]);
       }
       newStrip.push(selectedBot);
       
       setStripBots(newStrip);
-      displayedBotRef.current = selectedBot;
-    }
-  }, [isSpinning, selectedBot, bots]);
-
-  // Handle animation
-  useEffect(() => {
-    if (isSpinning && stripBots.length > 1 && selectedBot) {
-      isInternalSpinningRef.current = true;
-      const itemHeight = stripRef.current?.children[0]?.clientHeight || 200;
-
-      // Calculate starting position for the "roulette" strip based on where we were
-      const finalOffset = -((stripBots.length - 1) * itemHeight);
       
-      let animationFrameId: number;
-      const ctx = initAudio();
+      const startOffset = offset;
+      const finalOffset = -((newStrip.length - 1) * ITEM_HEIGHT);
       
-      if (stripRef.current) {
-        // Snap instantly to the top
-        stripRef.current.style.transition = 'none';
-        stripRef.current.style.transform = `translateY(0px)`;
-        setOffset(0);
+      setTransition('none');
+
+      // Wait a frame to apply transition for the CSS-based animation
+      const rafId = requestAnimationFrame(() => {
+        setTransition(`transform ${SPIN_DURATION_MS}ms cubic-bezier(0, 0.8, 0.3, 1)`);
+        setOffset(finalOffset);
         
-        // Trigger reflow to apply the snap
-        void stripRef.current.offsetHeight;
-        
-        // Start animation
-        stripRef.current.style.transition = `transform ${SPIN_DURATION_MS}ms cubic-bezier(0, 0.8, 0.3, 1)`;
-        stripRef.current.style.transform = `translateY(${finalOffset}px)`;
-        
-        let lastIndex = 0;
+        let lastTickIndex = Math.floor(Math.abs(startOffset) / ITEM_HEIGHT);
         let startTime: number | null = null;
 
         const checkTick = (timestamp: number) => {
-          if (!stripRef.current) return;
           if (startTime === null) startTime = timestamp;
-
           const elapsed = timestamp - startTime;
           const x = Math.min(elapsed / SPIN_DURATION_MS, 1);
+          // Calculate progress to manually trigger sound effects in sync with CSS animation
           const yProgress = solveCubicBezier(0, 0.8, 0.3, 1, x);
-          const y = yProgress * finalOffset;
+          const currentY = startOffset + (finalOffset - startOffset) * yProgress;
 
-          const currentIndex = Math.floor(Math.abs(y) / itemHeight);
-
-          if (currentIndex > lastIndex && currentIndex < stripBots.length) {
-            const missed = currentIndex - lastIndex;
-            const frameTime = 1 / 60;
+          const currentTickIndex = Math.floor(Math.abs(currentY) / ITEM_HEIGHT);
+          if (currentTickIndex > lastTickIndex) {
+            const missed = currentTickIndex - lastTickIndex;
+            // Play up to 2 ticks if moving fast, to avoid overwhelming audio
             const ticksToPlay = Math.min(missed, 2);
-            const timeStep = frameTime / ticksToPlay;
             const volume = 0.8 / ticksToPlay;
-
             for (let i = 0; i < ticksToPlay; i++) {
-              playTick(ctx, ctx.currentTime + (i * timeStep), volume);
+              playTick(ctx, ctx.currentTime + (i * 0.01), volume);
             }
-            lastIndex = currentIndex;
+            lastTickIndex = currentTickIndex;
           }
 
           if (elapsed < SPIN_DURATION_MS) {
@@ -200,45 +181,43 @@ export const BotWheel: React.FC<BotWheelProps> = ({ bots, isSpinning, selectedBo
           }
         };
         animationFrameId = requestAnimationFrame(checkTick);
-      }
-      
-      const timer = setTimeout(() => {
-        isInternalSpinningRef.current = false;
 
-        // Find selected bot index in the full bots list
-        const finalBotIndex = bots.findIndex(b => b.id === selectedBot.id);
-        if (finalBotIndex !== -1) {
-          setStripBots([...bots]);
-          setOffset(-(finalBotIndex * itemHeight));
+        timerId = setTimeout(() => {
+          isInternalSpinningRef.current = false;
           displayedBotRef.current = selectedBot;
-        }
 
-        onSpinComplete();
-        cancelAnimationFrame(animationFrameId);
-      }, SPIN_DURATION_MS + 50);
+          // Reset strip to normal bots list after spin finishes
+          const finalBotIndex = bots.findIndex(b => b.id === selectedBot.id);
+          setStripBots([...bots]);
+          setTransition('none');
+          setOffset(-(finalBotIndex * ITEM_HEIGHT));
+
+          onSpinComplete();
+          cancelAnimationFrame(animationFrameId);
+        }, SPIN_DURATION_MS + 50);
+      });
 
       return () => {
-        clearTimeout(timer);
+        cancelAnimationFrame(rafId);
         cancelAnimationFrame(animationFrameId);
+        clearTimeout(timerId);
       };
     }
-  }, [isSpinning, stripBots, bots, onSpinComplete, selectedBot]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isSpinning, selectedBot, bots, onSpinComplete]);
 
   const handlePointerDown = (e: React.PointerEvent) => {
     if (isSpinning || isInternalSpinningRef.current) return;
 
     initAudio();
     setIsDragging(true);
+    setTransition('none');
+
     startYRef.current = e.clientY;
     startOffsetRef.current = offset;
     lastYRef.current = e.clientY;
     lastTimeRef.current = performance.now();
     velocityRef.current = 0;
-
-    // Stop any CSS transitions
-    if (stripRef.current) {
-      stripRef.current.style.transition = 'none';
-    }
 
     (e.target as HTMLElement).setPointerCapture(e.pointerId);
   };
@@ -249,10 +228,8 @@ export const BotWheel: React.FC<BotWheelProps> = ({ bots, isSpinning, selectedBo
     const deltaY = e.clientY - startYRef.current;
     let newOffset = startOffsetRef.current + deltaY;
 
-    // Bounds resistance
-    const itemHeight = stripRef.current?.children[0]?.clientHeight || 200;
     const maxOffset = 0;
-    const minOffset = -((stripBots.length - 1) * itemHeight);
+    const minOffset = -((stripBots.length - 1) * ITEM_HEIGHT);
 
     if (newOffset > maxOffset) {
       newOffset = maxOffset + (newOffset - maxOffset) * 0.3;
@@ -260,12 +237,10 @@ export const BotWheel: React.FC<BotWheelProps> = ({ bots, isSpinning, selectedBo
       newOffset = minOffset + (newOffset - minOffset) * 0.3;
     }
 
-    // Audio ticks
-    const oldIndex = Math.round(Math.abs(offset) / itemHeight);
-    const newIndex = Math.round(Math.abs(newOffset) / itemHeight);
+    const oldIndex = Math.round(Math.abs(offset) / ITEM_HEIGHT);
+    const newIndex = Math.round(Math.abs(newOffset) / ITEM_HEIGHT);
     if (newIndex !== oldIndex && newIndex >= 0 && newIndex < stripBots.length) {
-      const ctx = initAudio();
-      playTick(ctx, ctx.currentTime, 0.4);
+      playTick(initAudio(), undefined, 0.4);
     }
 
     const currentTime = performance.now();
@@ -282,59 +257,62 @@ export const BotWheel: React.FC<BotWheelProps> = ({ bots, isSpinning, selectedBo
   const handlePointerUp = (e: React.PointerEvent) => {
     if (!isDragging) return;
     setIsDragging(false);
+    (e.target as HTMLElement).releasePointerCapture(e.pointerId);
 
-    const itemHeight = stripRef.current?.children[0]?.clientHeight || 200;
+    const timeSinceLastMove = performance.now() - lastTimeRef.current;
+    if (timeSinceLastMove > 50) {
+      velocityRef.current = 0;
+    }
 
-    // Check for "flick" (high velocity)
     if (Math.abs(velocityRef.current) > 1.0) {
       onSpin();
     } else {
-      // Snap to nearest item
-      const nearestIndex = Math.max(0, Math.min(stripBots.length - 1, Math.round(Math.abs(offset) / itemHeight)));
-      const targetOffset = -(nearestIndex * itemHeight);
+      const nearestIndex = Math.max(0, Math.min(stripBots.length - 1, Math.round(Math.abs(offset) / ITEM_HEIGHT)));
+      const targetOffset = -(nearestIndex * ITEM_HEIGHT);
 
+      setTransition('transform 0.3s cubic-bezier(0.15, 0.85, 0.15, 1)');
       setOffset(targetOffset);
       displayedBotRef.current = stripBots[nearestIndex];
-
-      if (stripRef.current) {
-        stripRef.current.style.transition = 'transform 0.3s cubic-bezier(0.15, 0.85, 0.15, 1)';
-      }
     }
-
-    (e.target as HTMLElement).releasePointerCapture(e.pointerId);
   };
 
   const wheelTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (wheelTimeoutRef.current) clearTimeout(wheelTimeoutRef.current);
+    };
+  }, []);
+
   const handleWheel = (e: React.WheelEvent) => {
     if (isSpinning || isInternalSpinningRef.current) return;
 
     initAudio();
-    const itemHeight = stripRef.current?.children[0]?.clientHeight || 200;
     const maxOffset = 0;
-    const minOffset = -((stripBots.length - 1) * itemHeight);
+    const minOffset = -((stripBots.length - 1) * ITEM_HEIGHT);
 
     let newOffset = offset - e.deltaY;
     newOffset = Math.max(minOffset, Math.min(maxOffset, newOffset));
 
-    // Audio ticks
-    const oldIndex = Math.round(Math.abs(offset) / itemHeight);
-    const newIndex = Math.round(Math.abs(newOffset) / itemHeight);
-    if (newIndex !== oldIndex && newIndex >= 0 && newIndex < stripBots.length) {
-      const ctx = initAudio();
-      playTick(ctx, ctx.currentTime, 0.4);
-    }
+    if (newOffset !== offset) {
+      setTransition('none');
 
-    setOffset(newOffset);
+      const oldIndex = Math.round(Math.abs(offset) / ITEM_HEIGHT);
+      const newIndex = Math.round(Math.abs(newOffset) / ITEM_HEIGHT);
+      if (newIndex !== oldIndex) {
+        playTick(initAudio(), undefined, 0.4);
+      }
+
+      setOffset(newOffset);
+    }
 
     if (wheelTimeoutRef.current) clearTimeout(wheelTimeoutRef.current);
     wheelTimeoutRef.current = setTimeout(() => {
-      const nearestIndex = Math.round(Math.abs(newOffset) / itemHeight);
-      const targetOffset = -(nearestIndex * itemHeight);
+      const nearestIndex = Math.round(Math.abs(newOffset) / ITEM_HEIGHT);
+      const targetOffset = -(nearestIndex * ITEM_HEIGHT);
+      setTransition('transform 0.3s cubic-bezier(0.15, 0.85, 0.15, 1)');
       setOffset(targetOffset);
       displayedBotRef.current = stripBots[nearestIndex];
-      if (stripRef.current) {
-        stripRef.current.style.transition = 'transform 0.3s cubic-bezier(0.15, 0.85, 0.15, 1)';
-      }
     }, 150);
   };
 
@@ -357,10 +335,9 @@ export const BotWheel: React.FC<BotWheelProps> = ({ bots, isSpinning, selectedBo
     >
       <div 
         className="wheel-strip" 
-        ref={stripRef}
         style={{
           transform: `translateY(${offset}px)`,
-          transition: isDragging ? 'none' : undefined
+          transition
         }}
       >
         {stripBots.map((bot, idx) => (
