@@ -18,11 +18,8 @@ function App() {
 
   useEffect(() => {
     localStorage.setItem('minElo', minElo.toString());
-  }, [minElo]);
-
-  useEffect(() => {
     localStorage.setItem('maxElo', maxElo.toString());
-  }, [maxElo]);
+  }, [minElo, maxElo]);
 
   const filteredBots = useMemo(() => {
     return allBots.filter(bot => bot.elo >= minElo && bot.elo <= maxElo);
