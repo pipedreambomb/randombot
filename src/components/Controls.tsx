@@ -84,6 +84,7 @@ export const Controls: React.FC<ControlsProps> = ({
           </select>
         </div>
       </div>
+      <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textAlign: 'center', marginTop: '0.5rem', opacity: 0.8 }}>Your Elo filter preferences are saved locally to your browser.</p>
       <button 
         className="btn-spin" 
         onClick={onSpin} 
